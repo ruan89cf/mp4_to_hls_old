@@ -1,6 +1,6 @@
-# Gerador de Metadados TMDb e XML
+# Gerador de Metadados TMDb e XML (Projeto Descontinuado)
 
-Este script bash automatiza o processo de obtenção de metadados do The Movie Database (TMDb), codificação de vídeos, renomeação de arquivos e geração de arquivos XML para as plataformas Vizer e Dooplay.
+Este script bash automatiza o processo de obtenção de metadados do The Movie Database (TMDb), codificação de vídeos, renomeação de arquivos e geração de arquivos XML para as plataformas Vizer e Dooplay.  **Este projeto foi descontinuado e não recebe mais atualizações.**  Foi substituído por uma versão em Java.
 
 ## Funcionalidades
 
@@ -28,7 +28,7 @@ Este script bash automatiza o processo de obtenção de metadados do The Movie D
 
 ## Instalação
 
-1. Clone o repositório:
+1. Clone o repositório (observe que este repositório é para fins de referência e não será atualizado):
 
 ```bash
-git clone https://github.com/ruan89cf/mp4_to_hls_old/
+git clone [https://github.com/ruan89cf/mp4_to_hls_old/](https://github.com/ruan89cf/mp4_to_hls_old/)
