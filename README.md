@@ -31,5 +31,5 @@ Este script bash automatiza o processo de obtenção de metadados do The Movie D
 1. Clone o repositório:
 
 ```bash
-git clone [URL inválido removido]
+git clone [[URL inválido removido]](https://github.com/ruan89cf/mp4_to_hls_old/)
 cd seu-nome-de-repositório
