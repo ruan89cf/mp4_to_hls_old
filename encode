@@ -1,0 +1,2765 @@
+#!/usr/bin/env bash
+# Author: Ruan https://github.com/ruan89c
+timedatectl set-timezone America/Sao_Paulo
+
+currentVersion="1.1.0"
+configuredClient=""
+configuredPython=""
+APIKEY="b2f8880475c888056b6207067fbaa197"
+LANG="pt-BR"
+
+function menu() {
+    clear
+    echo "#################################################################"
+    echo "#################################################################"
+    echo "#################################################################"
+    echo "Read before doing something... '"'One action can change your life!'"'"
+    echo "#################################################################"
+    echo "#################################################################"
+    echo "1  - Encode Filmes/Series"
+    echo "2  - Renomear mp4 to mkv"
+    echo "3  - Xml Dooplay"
+    echo "4  - Xml Vizer"
+
+    echo "0) Sair"
+    echo "Qual opção?"
+    read optionMENU
+}
+
+menu
+
+## This function determines which http get tool the system has installed and returns an error if there isnt one
+getConfiguredClient() {
+    if command -v curl &>/dev/null; then
+        configuredClient="curl"
+    elif command -v wget -q --no-verbose &>/dev/null; then
+        configuredClient="wget -q --no-verbose"
+    elif command -v http &>/dev/null; then
+        configuredClient="httpie"
+    elif command -v fetch &>/dev/null; then
+        configuredClient="fetch"
+    else
+        echo "Error: This tool requires either curl, wget -q --no-verbose, httpie or fetch to be installed." >&2
+        return 1
+    fi
+}
+
+## Allows to call the users configured client without if statements everywhere
+httpGet() {
+    case "$configuredClient" in
+    curl) curl -A curl -s "$@" ;;
+    wget) wget -qO- "$@" ;;
+    httpie) http -b GET "$@" ;;
+    fetch) fetch -q "$@" ;;
+    esac
+}
+
+getConfiguredPython() {
+    if command -v python2 &>/dev/null; then
+        configuredPython="python2"
+    elif command -v python &>/dev/null; then
+        configuredPython="python"
+    else
+        echo "Error: This tool requires python 2 to be installed."
+        return 1
+    fi
+}
+
+if [[ $(uname) != "Darwin" ]]; then
+    python() {
+        case "$configuredPython" in
+        python2) python2 "$@" ;;
+        python) python "$@" ;;
+        esac
+    }
+fi
+
+checkInternet() {
+    httpGet github.com >/dev/null 2>&1 || {
+        echo "Error: no active internet connection" >&2
+        return 1
+    } # query github with a get request
+}
+
+getMovieInfo() {
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/movie/$movie?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    genres="$(jq -r '[.genres[].name] | join(",")' <<<$FileInfo)"
+    genres="${genres//&/,}"
+    genres="${genres//Action/Ação}"
+    genres="${genres//Sci-Fi/Ficção}"
+    genres="${genres//Fantasy/Fantasia}"
+    genres="${genres//Action & Adventure/Ação}"
+    genres="${genres//Thriller/Suspense}"
+    genres="${genres//Adventure/Aventura}"
+    genres="${genres//científica/Ficção}"
+    genres="${genres//Kids/Crianças}"
+    genres="${genres//Politics/Política}"
+    genres="${genres//Reality/Reality Show}"
+    genres="${genres//Sci-Fi & Fantasy/Fantasia}"
+    genres="${genres//Soap/}"
+    genres="${genres//War/Guerra}"
+
+    episode_run_time="$(jq -r '.episode_run_time' <<<$FileInfo)"
+    title="$(jq -r '.title' <<<$FileInfo)"
+    original_language="$(jq -r '.original_language' <<<$FileInfo)"
+    vote_count="$(jq -r '.vote_count' <<<$FileInfo)"
+    vote_average="$(jq -r '.vote_average' <<<$FileInfo)"
+    popularity="$(jq -r '.popularity' <<<$FileInfo)"
+    release_date="$(jq -r '.release_date' <<<$FileInfo)"
+    poster_path="$(jq -r '.poster_path' <<<$FileInfo)"
+    backdrop_path="$(jq -r '.backdrop_path' <<<$FileInfo)"
+    budget="$(jq -r '.budget' <<<$FileInfo)"
+    imdb_id="$(jq -r '.external_ids.imdb_id' <<<$FileInfo)"
+    tvdb_id="$(jq -r '.external_ids.tvdb_id' <<<$FileInfo)"
+    id="$(jq -r '.id' <<<$FileInfo)"
+    runtime="$(jq -r '.runtime' <<<$FileInfo)"
+    original_title="$(jq -r '.original_title' <<<$FileInfo)"
+    revenue="$(jq -r '.revenue' <<<$FileInfo)"
+    tagline="$(jq -r '.tagline' <<<$FileInfo)"
+    overview="$(jq -r '.overview' <<<$FileInfo)"
+    videos_name="$(jq -r '.videos[] | map(.name) | join(", ")' <<<$FileInfo)"
+    videos="$(jq -r '.videos[] | map(.key) | join(", ")' <<<$FileInfo)"
+    production_companies="$(jq -r '.production_companies[].name' <<<$FileInfo)"
+    production_countries="$(jq -r '.production_countries[].name' <<<$FileInfo)"
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/movie/$movie/credits?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    cast="$(jq -r '.cast | map(.name) | join(", ")' <<<$FileInfo)"
+    directing="$(jq -r '.crew[] | select(.job=="Director").name' <<<$FileInfo)"
+    IFS=", " read -ra videos_name_new <<<$videos_name
+    IFS=", " read -ra videos_new <<<$videos
+    IFS=", " read -ra genres_new <<<$genres
+
+    title_new="${title,,}"
+    title_new="${title_new// /-}"
+    title_new="${title_new//":"/}"
+
+    echo $movie
+    echo $movie
+    echo $movie
+    echo $movie
+    echo $movie
+
+    if [[ $lancamentoYYYY == "" ]]; then
+
+        lancamentoYYYY=2000-01-01
+
+    fi
+
+    lancamentoYYYY=${release_date::-6}
+
+    echo "=========================================="
+    ### show the movie
+    echo "                MOVIE                     "
+    echo "=========================================="
+    echo "| Title: "$title""
+    echo "| Sinopse: "$overview""
+    echo "| Capa: "https://image.tmdb.org/t/p/w342$poster_path""
+    echo "| Capa de fundo: "https://image.tmdb.org/t/p/original$backdrop_path""
+    echo "| ID Youtube: "$videos_new""
+    echo "| IMDb_id: "$imdb_id""
+    echo "| Themoviedb_id: "$id""
+    echo "| TVDB_id: "$tvdb_id""
+    echo "| Original_Title: "$original_title""
+    echo "| Tagline: "$tagline""
+    echo "| Data de lancamento: "$release_date""
+    echo "| Nota TMDB: "$vote_average""
+    echo "| Duração: "$runtime""
+    echo "| Elenco: "$cast""
+    echo "| Diretor: "$directing" "
+    echo "| Genre: "$genres""
+    echo "=========================================="
+    echo
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/original$backdrop_path
+    backdrop_new="${backdrop_path////}"
+    mv $backdrop_new /play/img/backdrop/$noExt.jpg
+   
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/w342$poster_path
+    poster_new="${poster_path////}"
+    mv $poster_new /play/img/poster/$noExt.jpg
+   
+}
+
+getTVInfo() {
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/tv/$tv?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    title="$(jq -r '.name' <<<$FileInfo)"
+    overview="$(jq -r '.overview' <<<$FileInfo)"
+    TVsinopse="$(jq -r '.overview' <<<$FileInfo)"
+    poster_path="$(jq -r '.poster_path' <<<$FileInfo)"
+    backdrop_path="$(jq -r '.backdrop_path' <<<$FileInfo)"
+    videos="$(jq -r '.videos[] | map(.key) | join(", ")' <<<$FileInfo)"
+    imdb_id="$(jq -r '.external_ids.imdb_id' <<<$FileInfo)"
+    tvdb_id="$(jq -r '.external_ids.tvdb_id' <<<$FileInfo)"
+    original_name="$(jq -r '.original_name' <<<$FileInfo)"
+    first_air_date="$(jq -r '.first_air_date' <<<$FileInfo)"
+    last_air_date="$(jq -r '.last_air_date' <<<$FileInfo)"
+    last_episode_to_air="$(jq -r '.last_episode_to_air.air_date' <<<$FileInfo)"
+    number_of_seasons="$(jq -r '.number_of_seasons' <<<$FileInfo)"
+    number_of_episodes="$(jq -r '.number_of_episodes' <<<$FileInfo)"
+    vote_average="$(jq -r '.vote_average' <<<$FileInfo)"
+    next_episode_to_air="$(jq -r '.next_episode_to_air.air_date' <<<$FileInfo)"
+    episode_run_time="$(jq -r '.episode_run_time | join(", ")' <<<$FileInfo)"
+    created_by="$(jq -r '.created_by[].name' <<<$FileInfo)"
+    genres="$(jq -r '[.genres[].name] | join(",")' <<<$FileInfo)"
+    genres="${genres//&/,}"
+    genres="${genres//Action/Ação}"
+    genres="${genres//Sci-Fi/Ficção}"
+    genres="${genres//Fantasy/Fantasia}"
+    genres="${genres//Action & Adventure/Ação}"
+    genres="${genres//Thriller/Suspense}"
+    genres="${genres//Adventure/Aventura}"
+    genres="${genres//científica/Ficção}"
+    genres="${genres//Kids/Crianças}"
+    genres="${genres//Politics/Política}"
+    genres="${genres//Reality/Reality Show}"
+    genres="${genres//Sci-Fi & Fantasy/Fantasia}"
+    genres="${genres//Soap/}"
+    genres="${genres//War/Guerra}"
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/tv/$tv/credits?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    cast="$(jq -r '.cast | map(.name) | join(", ")' <<<$FileInfo)"
+
+    IFS=", " read -ra videos_name_new <<<$videos_name
+    IFS=", " read -ra videos_new <<<$videos
+    IFS=", " read -ra genres_new <<<$genres
+
+    echo $tv
+
+    title_new="${title,,}"
+    title_new="${title_new// /-}"
+    title_new="${title_new//":"/}"
+    lancamentoYYYY=${first_air_date::-6}
+
+    if [[ $lancamentoYYYY == "" ]]; then
+
+        lancamentoYYYY=2000-01-01
+
+    fi
+
+    echo "=========================================="
+    ### show the tvshow and episode
+    echo "                TVSHOW                    "
+    echo "=========================================="
+    echo "| Titulo: "$title""
+    echo "| Sinopse: "$overview""
+    echo "| Gerar dados: "$tv""
+    echo "| Capa: "https://image.tmdb.org/t/p/w342$poster_path""
+    echo "| Capa de fundo: "https://image.tmdb.org/t/p/original$backdrop_path""
+    echo "| ID Youtube: "$videos_new""
+    echo "| IMDb_id: "$imdb_id""
+    echo "| Themoviedb_id: "$tv""
+    echo "| TVDB_id: "$tvdb_id""
+    echo "| Nome original: "$original_name""
+    echo "| Data de Lançamento: "$first_air_date""
+    echo "| Última data ao ar: "$last_air_date""
+    echo "| Temporada / Episódio: "$number_of_seasons" / $number_of_episodes"
+    echo "| Nota TMDB: "$vote_average""
+    echo "| Ultimo episódio: "$last_episode_to_air""
+    echo "| Duração dos episódios: "$episode_run_time""
+    echo "| Elenco: "$cast""
+    echo "| O Criador: "$created_by""
+    echo "| Genre: "$genres""
+    echo "=========================================="
+    echo
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/original$backdrop_path
+    backdrop_new="${backdrop_path////}"
+
+    mv $backdrop_new /play/img/backdrop/$noExt.jpg
+    
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/w342$poster_path
+    poster_new="${poster_path////}"
+
+    mv $poster_new /play/img/poster/$noExt.jpg
+    
+
+}
+
+getSeasonInfo() {
+
+    FileInfo="$(httpGet "https://api.themoviedb.org/3/tv/$tv?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")"
+    title="$(jq -r '.name' <<<$FileInfo)"
+    title_new="${title,,}"
+    title_new="${title_new// /-}"
+
+    poster_path=$(echo "$FileInfo" | python -c "import sys, json; print json.load(sys.stdin)['seasons'][$season]['poster_path']" 2>/dev/null)
+
+    FileInfo="$(httpGet "https://api.themoviedb.org/3/tv/$tv/season/$season?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")"
+    poster_path="$(jq -r '.poster_path' <<<$FileInfo)"
+    air_date="$(jq -r '.air_date' <<<$FileInfo)"
+
+    echo "=========================================="
+    ### show the tvshow and episode
+    echo "              TEMPORADA                   "
+    echo "=========================================="
+    echo "| Titulo: "$title" "$season" Temporada"
+    echo "| Gerar dados: "$tv" | "$season""
+    echo "| Capa: "https://image.tmdb.org/t/p/w342""$poster_path""
+    echo "| Data Lançamento: "$air_date""
+    echo "=========================================="
+    echo
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/w342$poster_path
+    poster_new="${poster_path////}"
+    mv $poster_new /play/img/poster/$noExt.jpg
+   
+}
+
+getEpisodeInfo() {
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/tv/$tv?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    title="$(jq -r '.name' <<<$FileInfo)"
+    title_new="${title,,}"
+    title_new="${title_new// /-}"
+    title_new="${title_new//":"/}"
+
+    FileInfo=$(httpGet "https://api.themoviedb.org/3/tv/$tv/season/$season/episode/$episode?api_key=$APIKEY&append_to_response=videos,images,external_ids&language=$LANG")
+    name="$(jq -r '.name' <<<$FileInfo)"
+    still_path="$(jq -r '.still_path' <<<$FileInfo)"
+    overview="$(jq -r '.overview' <<<$FileInfo)"
+    air_date="$(jq -r '.air_date' <<<$FileInfo)"
+    imageneres="$(jq -r '.images.stills | map(.file_path) | join(", ")' <<<$FileInfo)"
+    IFS=", " read -ra imageneres_new <<<$imageneres
+
+    if [[ $season -lt 10 ]]; then
+        seasonSP=$(echo S0$season)
+    else
+        seasonSP=$(echo S$season)
+    fi
+
+    if [[ $episode -lt 10 ]]; then
+        episodeSP=$(echo E0$episode)
+    else
+        episodeSP=$(echo E$episode)
+    fi
+
+    if [[ $name == "Episódio $episode" ]]; then
+        FileInfo=$(httpGet "https://api.themoviedb.org/3/tv/$tv/season/$season/episode/$episode?api_key=$APIKEY&append_to_response=videos,images,external_ids")
+        new="$(jq -r '.name' <<<$FileInfo)"
+
+        if [[ $new != "Episode"* ]]; then
+            name=$new
+        fi
+    fi
+
+    echo "=========================================="
+    ### show the tvshow and episode
+    echo "              EPISODE                     "
+    echo "=========================================="
+    echo "| Titulo: "$title" $seasonª Temporada - Episodio $episode"
+    echo "| Gerar dados: "$tv" | "$season" | "$episode""
+    echo "| Gerar dados: "${seasonSP}${episodeSP}""
+    echo "| Sinopse: "$overview""
+    echo "| SERIE Sinopse: "$TVsinopse""
+    echo "| Episode name: "$name""
+    echo "| Nome da série: "$title""
+    echo "| Data Lançamento: "$air_date""
+    echo "| Capa: "https://image.tmdb.org/t/p/w342""$still_path""
+    echo "| "Poster 1: "https://image.tmdb.org/t/p/original${imageneres_new[0]}"
+    echo "| "Poster 2: "https://image.tmdb.org/t/p/original${imageneres_new[1]}"
+    echo "| "Poster 3: "https://image.tmdb.org/t/p/original${imageneres_new[2]}"
+    echo "| "Poster 4: "https://image.tmdb.org/t/p/original${imageneres_new[3]}"
+    echo "| "Poster 5: "https://image.tmdb.org/t/p/original${imageneres_new[4]}"
+    echo "| "Poster 6: "https://image.tmdb.org/t/p/original${imageneres_new[5]}"
+    echo "| "Poster 7: "https://image.tmdb.org/t/p/original${imageneres_new[6]}"
+    echo "=========================================="
+    echo
+
+    still_path_new="${still_path////}"
+    echo "MOVENDO AS IMAGENS AQUI"
+    echo "https://image.tmdb.org/t/p/original$still_path $noExt-$season-$episode.jpg"
+    echo "https://image.tmdb.org/t/p/w342$still_path $noExt-$season-$episode.jpg"
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/original$still_path
+
+    mv $still_path_new /play/img/backdrop/$noExt-$season-$episode.jpg
+    rm $still_path_new
+
+    wget -q --no-verbose https://image.tmdb.org/t/p/w342$still_path
+    mv $still_path_new /play/img/poster/$noExt-$season-$episode.jpg
+    rm $still_path_new
+}
+
+getXmlMovieVizer() {
+
+    tipooo=filme
+
+    if [[ ! -f "file/filme/dub/360p/$movie.mp4" ]] && [[ -f "file/filme/leg/360p/$movie.mp4" ]]; then
+
+        playervizer='<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:8:"Original";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorL':"'$leg'";}}]]></wp:meta_value>'
+
+    elif [[ -f "file/filme/dub/360p/$movie.mp4" ]] && [[ ! -f "file/filme/leg/360p/$movie.mp4" ]]; then
+
+        playervizer='	<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:7:"Dublado";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorD':"'$dub'";}}]]></wp:meta_value>'
+
+    elif [[ -f "file/filme/dub/360p/$movie.mp4" ]] && [[ -f "file/filme/leg/360p/$movie.mp4" ]]; then
+
+        playervizer='<wp:meta_value><![CDATA[a:2:{i:0;a:4:{s:4:"name";s:8:"Original";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorL':"'$leg'";}i:1;a:4:{s:4:"name";s:7:"Dublado";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorD':"'$dub'";}}]]></wp:meta_value>'
+
+    fi
+
+    getTime
+    getFields
+
+    vote_average="${vote_average:0:3}"
+
+    rm -rf $movie.xml
+    cat <<EOF >>$movie.xml
+
+            <?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+                <channel>
+                    <title>Tudocinema</title>
+                    <link>https://tudocinema.com</link>
+                    <description>Só mais um site WordPress</description>
+                    <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                    <language>pt-BR</language>
+                    <wp:wxr_version>1.2</wp:wxr_version>
+                    <wp:base_site_url>https://tudocinema.com</wp:base_site_url>
+                    <wp:base_blog_url>https://tudocinema.com</wp:base_blog_url>
+                    <wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[administrador]]></wp:author_login><wp:author_email><![CDATA[ruancabral113@gmail.com]]></wp:author_email><wp:author_display_name><![CDATA[administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+                    <generator>https://wordpress.org/?v=4.9.18</generator>
+
+                    <item>
+                        <title>$title</title>
+                        <link>https://tudocinema.com/filmes/$title_new/</link>
+                        <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                        <dc:creator><![CDATA[administrador]]></dc:creator>
+                        <guid isPermaLink="false">https://tudocinema.com/?post_type=movies&#038;p=$id</guid>
+                        <description></description>
+                        <content:encoded><![CDATA[$overview]]></content:encoded>
+                        <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+                        <wp:post_id>$id</wp:post_id>
+                        <wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+                        <wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+                        <wp:comment_status><![CDATA[open]]></wp:comment_status>
+                        <wp:ping_status><![CDATA[closed]]></wp:ping_status>
+                        <wp:post_name><![CDATA[$title_new]]></wp:post_name>
+                        <wp:status><![CDATA[publish]]></wp:status>
+                        <wp:post_parent>0</wp:post_parent>
+                        <wp:menu_order>0</wp:menu_order>
+                        <wp:post_type><![CDATA[movies]]></wp:post_type>
+                        <wp:post_password><![CDATA[]]></wp:post_password>
+                        <wp:is_sticky>0</wp:is_sticky>
+                        <category domain="movies_category" nicename="${genres_new[0]}"><![CDATA[${genres_new[0]}]]></category>
+                        <category domain="movies_category" nicename="${genres_new[1]}"><![CDATA[${genres_new[1]}]]></category>
+                        <category domain="movies_category" nicename="${genres_new[2]}"><![CDATA[${genres_new[2]}]]></category>
+                        <category domain="movies_category" nicename="${genres_new[3]}"><![CDATA[${genres_new[3]}]]></category>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[1]]></wp:meta_value>
+                        </wp:postmeta>
+
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[ids]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$imdb_id]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[poster]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[backdrop]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$backdrop_path]]></wp:meta_value>
+                        </wp:postmeta>
+                       							<wp:postmeta>
+		<wp:meta_key><![CDATA[youtube_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$videos_new]]></wp:meta_value>
+		</wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[original_title]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$original_title]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[release_date]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$release_date]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[runtime]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$runtime]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[vote_average]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$vote_average]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[tagline]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$tagline]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[cast]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$cast]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[dir]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$directing]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[idtmdb]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$id]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[post_views_count]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[0]]></wp:meta_value>
+                        </wp:postmeta>
+                    
+                    <wp:postmeta>
+                        <wp:meta_key><![CDATA[repeatable_fields]]></wp:meta_key>
+                        $playervizer
+                        </wp:postmeta>
+
+                    </item>
+                </channel>
+            </rss>
+
+EOF
+
+}
+
+getXmlMovieDooplay() {
+
+    notaimdb="${vote_average:0:3}"
+
+    if [[ -f stats/$movie.dual ]]; then
+        audio=dual
+        audioTAG=Dual
+        linkTAG=dublado-e-legendado
+    elif [[ -f stats/$movie.dub ]]; then
+        audio=dub
+        audioTAG=DUB
+        linkTAG=dublado
+    elif [[ -f stats/$movie.leg ]]; then
+        audio=leg
+        audioTAG=LEG
+        linkTAG=legendado
+    else
+
+        audio=dub
+        audioTAG=DUB
+        linkTAG=dublado
+
+    fi
+
+    newid=${movie/tt/}
+
+    getTime
+    getFields
+
+    tamanhoMovie=$(wc -m <<<$movie)
+    tamanho=$((47 + $tamanhoMovie))
+
+    cat <<EOF >>${movie}.xml
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+
+<channel>
+
+    <title>Tudo Cinema</title>
+	<link>https://www.tudocinema.com</link>
+	<description>Filmes, Séries e animes num só lugar</description>
+	<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+	<language>pt-BR</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.tudocinema.com</wp:base_site_url>
+	<wp:base_blog_url>https://www.tudocinema.com</wp:base_blog_url>
+
+		<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[Administrador]]></wp:author_login><wp:author_email><![CDATA[admin@tudocinema.com]]></wp:author_email><wp:author_display_name><![CDATA[Administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+				
+	<generator>https://wordpress.org/?v=5.9.3</generator>
+
+		<item>
+		<title><![CDATA[$title]]></title>
+		<link>https://www.tudocinema.com/filmes/$title_new-$lancamentoYYYY-$linkTAG/</link>
+		<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+		<dc:creator><![CDATA[Administrador]]></dc:creator>
+		<guid isPermaLink="false">https://www.tudocinema.com/?post_type=movies&#038;p=$newid</guid>
+		<description></description>
+		<content:encoded><![CDATA[$overview
+<br>
+&nbsp;
+<blockquote>
+<h5 style="text-align: center;">Assistir $title na Netflix,
+ASSISTIR $title ONLINE DUBLADO,
+ASSISTIR $title ONLINE LEGENDADO HD,
+ASSISTIR $title ONLINE DUBLADO HD,
+Download $title,
+Download $title torrent,
+Baixar $title torrent,
+Assistir $title Full HD,
+Assistir $title 1080p online,
+Filme online $title ”FULL HD DUBLADO gratis,
+Assistir ver online $title,
+”FULL HD DUBLADO $title FULL HD DUBLADO” filme completo dublado,
+Ver gratis assistir $title ”FULL HD DUBLADO” dublado,
+Ver online $title ”FULL HD DUBLADO”,
+online $title ”FULL HD DUBLADO”,
+Assistir $title ”FULL HD DUBLADO” filme completo dublado online,
+Ver $title ”FULL HD DUBLADO”,
+Ver $title FULL HD DUBLADO 720p HD online,
+Ver $title ”FULL HD DUBLADO 1080p Full hd online,
+Ver $title FULL HD DUBLADO 4k Online,
+Assitir $title no TopFlix,
+Assitir $title no NetCine,
+Assitir $title no RedeCanais,
+Assitir $title no MMFilmes,
+Assitir $title no Vizer,
+Assitir $title no Mega Filmes</h5>
+</blockquote>]]></content:encoded>
+
+
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>$newid</wp:post_id>
+		<wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+		<wp:post_modified><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified>
+		<wp:post_modified_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:ping_status><![CDATA[closed]]></wp:ping_status>
+		<wp:post_name><![CDATA[$title_new-$lancamentoYYYY-$linkTAG]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[movies]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+        <category domain="dtquality" nicename="$audio"><![CDATA[$audioTAG]]></category>
+        <category domain="dtyear" nicename="$lancamentoYYYY"><![CDATA[$lancamentoYYYY]]></category>
+		<category domain="post_tag" nicename="$notaimdb"><![CDATA[$notaimdb]]></category>
+        <category domain="post_tag" nicename="$lancamentoYYYY"><![CDATA[$lancamentoYYYY]]></category>        
+		<category domain="post_tag" nicename="assistir-$title_new"><![CDATA[assistir $title]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-$lancamentoYYYY"><![CDATA[assistir $title $lancamentoYYYY]]></category>        
+		<category domain="post_tag" nicename="assistir-$title_new-online"><![CDATA[assistir $title online]]></category>
+		<category domain="post_tag" nicename="$title_new-torrent"><![CDATA[$title torrent]]></category>        
+		<category domain="post_tag" nicename="baixar-$title_new"><![CDATA[baixar $title]]></category>
+		<category domain="post_tag" nicename="download-$title_new"><![CDATA[download $title]]></category>        
+		<category domain="post_tag" nicename="$title_new"><![CDATA[$title]]></category>
+		<category domain="post_tag" nicename="$title_new-dublado"><![CDATA[$title dublado]]></category>
+		<category domain="post_tag" nicename="$title_new-dublado-e-legendado"><![CDATA[$title dublado e legendado]]></category>
+		<category domain="post_tag" nicename="$title_new-legendado"><![CDATA[$title legendado]]></category>
+		<category domain="post_tag" nicename="$title_new-online"><![CDATA[$title online]]></category>
+		<category domain="post_tag" nicename="dual-audio"><![CDATA[dual audio]]></category>
+		<category domain="post_tag" nicename="torrent"><![CDATA[torrent]]></category>
+		<category domain="post_tag" nicename="$title_new-hd"><![CDATA[$title hd]]></category>
+		<category domain="post_tag" nicename="$title_new-gratis"><![CDATA[$title gratis]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-gratis"><![CDATA[assistir $title gratis]]></category>			
+		<category domain="genres" nicename="${genres_new[0]}"><![CDATA[${genres_new[0]}]]></category>
+        <category domain="genres" nicename="${genres_new[1]}"><![CDATA[${genres_new[1]}]]></category>
+        <category domain="genres" nicename="${genres_new[2]}"><![CDATA[${genres_new[2]}]]></category>
+        <category domain="genres" nicename="${genres_new[3]}"><![CDATA[${genres_new[3]}]]></category>
+		<category domain="dtquality" nicename="$tagURL"><![CDATA[$tagName]]></category>
+						<wp:postmeta>
+		<wp:meta_key><![CDATA[ids]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$imdb_id]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[idtmdb]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$id]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_poster]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_backdrop]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$backdrop_path]]></wp:meta_value>
+		</wp:postmeta>
+
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[imdbRating]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$vote_average]]></wp:meta_value>
+		</wp:postmeta>
+
+        							<wp:postmeta>
+		<wp:meta_key><![CDATA[repeatable_fields]]></wp:meta_key>
+		<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:6:"Player";s:6:"select";s:6:"iframe";s:6:"idioma";s:0:"";s:3:"url";s:$tamanho:"https://play.tudocinema.com/watch.php?v=$movie&t=filme";}}]]></wp:meta_value>
+		</wp:postmeta>
+
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[original_title]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$original_title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[release_date]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$release_date]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[vote_average]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$vote_average]]></wp:meta_value>
+		</wp:postmeta>
+					
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[tagline]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$tagline]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[runtime]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$runtime]]></wp:meta_value>
+		</wp:postmeta>
+                							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_focuskw]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key>
+		<wp:meta_value><![CDATA[Assistir %%title%% - Dublado e Legendado ($lancamentoYYYY)]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title Online - Assistir $title Online Gratis, Filme Dublado e Legendado. ($lancamentoYYYY) Baixar Torrent,Sim! Download via Torrent em 1080p e 720p. Sinopse: $overview]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_linkdex]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_content_score]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_estimated-reading-time-minutes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							</item> 			
+				</item>
+				</channel>
+</rss>
+	
+EOF
+
+    mv *.xml xml
+
+}
+
+getXmlTVVizer() {
+
+    vote_average="${vote_average:0:3}"
+    videos_new="${videos_new[0]}"
+
+    if [[ $anime == true ]]; then
+
+        postType=anime
+
+    else
+
+        postType=tvshows
+
+    fi
+
+    getTime
+
+    rm -rf $tv.xml
+    cat <<EOF >>$tv.xml
+
+            <?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+                <channel>
+                    <title>Tudocinema</title>
+                    <link>https://tudocinema.com</link>
+                    <description>Só mais um site WordPress</description>
+                    <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                    <language>pt-BR</language>
+                    <wp:wxr_version>1.2</wp:wxr_version>
+                    <wp:base_site_url>https://tudocinema.com</wp:base_site_url>
+                    <wp:base_blog_url>https://tudocinema.com</wp:base_blog_url>
+                    <wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[administrador]]></wp:author_login><wp:author_email><![CDATA[ruancabral113@gmail.com]]></wp:author_email><wp:author_display_name><![CDATA[administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+                    <generator>https://wordpress.org/?v=4.9.18</generator>
+    
+                     <item>
+                        <title>$title</title>
+                        <link>https://tudocinema.com/series/$title_new/</link>
+                        <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                        <dc:creator><![CDATA[administrador]]></dc:creator>
+                        <guid isPermaLink="false">https://tudocinema.com/?post_type=$postType&#038;p=$tv</guid>
+                        <description></description>
+                        <content:encoded><![CDATA[$overview]]></content:encoded>
+                        <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+                        <wp:post_id>$tv</wp:post_id>
+                        <wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+                        <wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+                        <wp:comment_status><![CDATA[closed]]></wp:comment_status>
+                        <wp:ping_status><![CDATA[closed]]></wp:ping_status>
+                        <wp:post_name><![CDATA[$title_new]]></wp:post_name>
+                        <wp:status><![CDATA[publish]]></wp:status>
+                        <wp:post_parent>0</wp:post_parent>
+                        <wp:menu_order>0</wp:menu_order>
+                        <wp:post_type><![CDATA[$postType]]></wp:post_type>
+                        <wp:post_password><![CDATA[]]></wp:post_password>
+                        <wp:is_sticky>0</wp:is_sticky>
+                        <category domain="tvshows_category" nicename="${genres_new[0]}"><![CDATA[${genres_new[0]}]]></category>
+                        <category domain="tvshows_category" nicename="${genres_new[1]}"><![CDATA[${genres_new[1]}]]></category>
+                        <category domain="tvshows_category" nicename="${genres_new[2]}"><![CDATA[${genres_new[2]}]]></category>
+                        <category domain="tvshows_category" nicename="${genres_new[3]}"><![CDATA[${genres_new[3]}]]></category>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[episode_run_time]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$episode_run_time]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[first_air_date]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$first_air_date]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[last_air_date]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$last_air_date]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[cast]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$cast]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[creator]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$created_by]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[clgnrt]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[1]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[number_of_seasons]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$number_of_seasons]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[original_name]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$original_name]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[vote_average]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$vote_average]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[number_of_episodes]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$number_of_episodes]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[imdb_id]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$imdb_id]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[youtube_id]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$videos_new]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[episode]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$last_air_date]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[ids]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[1]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[poster]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[backdrop]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$backdrop_path]]></wp:meta_value>
+                        </wp:postmeta>
+                    </item>
+                 </channel>
+                </rss>
+EOF
+
+}
+
+getXmlTVDooplay() {
+
+    notaimdb="${vote_average:0:3}"
+
+    if [[ $anime = anime ]]; then
+
+        custom='<category domain="post_tag" nicename="anime"><![CDATA[anime]]></category>'
+
+    fi
+    getTime
+
+    rm -rf ${tv}.xml
+    cat <<EOF >>${tv}.xml
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+
+<channel>
+	<title>Tudo Cinema</title>
+	<link>https://www.tudocinema.com</link>
+	<description>Só mais um site WordPress</description>
+	<pubDate>>$dayName, $dayNumber $month $year $time +0000</pubDate>
+	<language>pt-BR</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.tudocinema.com</wp:base_site_url>
+	<wp:base_blog_url>https://www.tudocinema.com</wp:base_blog_url>
+
+		<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[Administrador]]></wp:author_login><wp:author_email><![CDATA[admin@filmesxonline.com]]></wp:author_email><wp:author_display_name><![CDATA[Administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+
+				
+	<generator>https://wordpress.org/?v=5.8.3</generator>
+
+		<item>
+		<title><![CDATA[$title]]></title>
+		<link>https://www.tudocinema.com/series/$title_new/</link>
+		<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+		<dc:creator><![CDATA[Administrador]]></dc:creator>
+		<guid isPermaLink="false">https://www.tudocinema.com/?post_type=tvshows&#038;p=$tv</guid>
+		<description></description>
+		<content:encoded><![CDATA[$overview]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>$tv</wp:post_id>
+		<wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+		<wp:post_modified><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified>
+		<wp:post_modified_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:ping_status><![CDATA[closed]]></wp:ping_status>
+		<wp:post_name><![CDATA[$title_new]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[tvshows]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+	
+		<category domain="dtyear" nicename="$lancamentoYYYY"><![CDATA[$lancamentoYYYY]]></category>	
+        <category domain="genres" nicename="${genres_new[0]}"><![CDATA[${genres_new[0]}]]></category>
+        <category domain="genres" nicename="${genres_new[1]}"><![CDATA[${genres_new[1]}]]></category>
+        <category domain="genres" nicename="${genres_new[2]}"><![CDATA[${genres_new[2]}]]></category>
+        <category domain="genres" nicename="${genres_new[3]}"><![CDATA[${genres_new[3]}]]></category>
+        $custom
+        <category domain="post_tag" nicename="$notaimdb"><![CDATA[$notaimdb]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new"><![CDATA[assistir $title]]></category>		
+		<category domain="post_tag" nicename="assistir-$title_new"><![CDATA[assistir $title]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-dublado"><![CDATA[assistir $title dublado]]></category>
+		<category domain="post_tag" nicename="$lancamentoYYYY"><![CDATA[$lancamentoYYYY]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-online"><![CDATA[assistir $title online]]></category>
+		<category domain="post_tag" nicename="assistir-serie-$title_new-online"><![CDATA[assistir serie $title online]]></category>
+		<category domain="post_tag" nicename="ver-$title_new-dublado"><![CDATA[ver $title dublado]]></category>
+		<category domain="post_tag" nicename="ver-$title_new-legendado"><![CDATA[ver $title legendado]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-dublado"><![CDATA[assistir $title dublado]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-legendado"><![CDATA[assistir $title legendado]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-hd"><![CDATA[assistir $title hd]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-gratis"><![CDATA[assistir $title gratis]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-full-hd"><![CDATA[assistir $title full hd]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-dublado-e-legendado"><![CDATA[assistir $title dublado e legendado]]></category>
+		<category domain="post_tag" nicename="assistir-$title_new-completo"><![CDATA[assistir $title completo]]></category>
+		<category domain="post_tag" nicename="assistir-serie-completa-$title_new-completo"><![CDATA[assistir serie completa $title completo]]></category>
+		<category domain="post_tag" nicename="assistir-todas-temporadas-$title_new-completo"><![CDATA[assistir todas temporadas $title completo]]></category>
+		<category domain="post_tag" nicename="assistir-gratis-a-serie-$title_new-completo"><![CDATA[assistir gratis a serie $title completo]]></category>		
+						<wp:postmeta>
+		<wp:meta_key><![CDATA[ids]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[youtube_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[[$videos_new]]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[episode_run_time]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$episode_run_time]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_poster]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_backdrop]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$backdrop_path]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[first_air_date]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$first_air_date]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[last_air_date]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$last_air_date]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[number_of_episodes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$number_of_episodes]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[number_of_seasons]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$number_of_seasons]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[original_name]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$original_name]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[imdbRating]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$vote_average]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[imdbVotes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+		<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[clgnrt]]></wp:meta_key>
+		<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_focuskw]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key>
+		<wp:meta_value><![CDATA[%%title%% - Série Completa]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title Todas temporadas. Assistir $title, Assistir Online $title, $title Dublado, $title legendado]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_linkdex]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_content_score]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_estimated-reading-time-minutes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							</item>
+				</channel>
+</rss>
+EOF
+
+}
+
+getXmlSeasonVizer() {
+
+    getTime
+    vote_average="${vote_average:0:3}"
+    rm -rf $tv-$season.xml
+    cat <<EOF >>$tv-$season.xml
+
+            <?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+                <channel>
+                    <title>Tudocinema</title>
+                    <link>https://tudocinema.com</link>
+                    <description>Só mais um site WordPress</description>
+                    <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                    <language>pt-BR</language>
+                    <wp:wxr_version>1.2</wp:wxr_version>
+                    <wp:base_site_url>https://tudocinema.com</wp:base_site_url>
+                    <wp:base_blog_url>https://tudocinema.com</wp:base_blog_url>
+                    <wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[administrador]]></wp:author_login><wp:author_email><![CDATA[ruancabral113@gmail.com]]></wp:author_email><wp:author_display_name><![CDATA[administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+                    <generator>https://wordpress.org/?v=4.9.18</generator>
+
+                    <item>
+                        <title>$title: $seasonª Temporada</title>
+                        <link>https://tudocinema.com/?seasons=$title_new-${season}a-temporada</link>
+                        <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                        <dc:creator><![CDATA[administrador]]></dc:creator>
+                        <guid isPermaLink="false">https://tudocinema.com/?seasons=${title_new}-${season}a-temporada</guid>
+                        <description></description>
+                        <content:encoded><![CDATA[]]></content:encoded>
+                        <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+                        <wp:post_id>${tv}${season}</wp:post_id>
+                        <wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+                        <wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+                        <wp:comment_status><![CDATA[closed]]></wp:comment_status>
+                        <wp:ping_status><![CDATA[closed]]></wp:ping_status>
+                        <wp:post_name><![CDATA[${title_new}-${season}a-temporada]]></wp:post_name>
+                        <wp:status><![CDATA[publish]]></wp:status>
+                        <wp:post_parent>0</wp:post_parent>
+                        <wp:menu_order>0</wp:menu_order>
+                        <wp:post_type><![CDATA[seasons]]></wp:post_type>
+                        <wp:post_password><![CDATA[]]></wp:post_password>
+                        <wp:is_sticky>0</wp:is_sticky>
+                   							<wp:postmeta>
+		<wp:meta_key><![CDATA[youtube_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$videos_new]]></wp:meta_value>
+		</wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[ids]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[temporada]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$season]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[serie]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$title]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[poster]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+                        </wp:postmeta>
+                        <wp:postmeta>
+                            <wp:meta_key><![CDATA[clgnrt]]></wp:meta_key>
+                            <wp:meta_value><![CDATA[1]]></wp:meta_value>
+                        </wp:postmeta>
+                    </item>
+                
+                        
+                        
+                    </channel>
+                </rss>
+
+EOF
+
+}
+
+getXmlSeasonDooplay() {
+
+    getTime
+
+    rm -rf ${tv}-${season}.xml
+    cat <<EOF >>${tv}-${season}.xml
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/"
+>
+
+<channel>
+	<title>Filmes x Online</title>
+	<link>https://www.tudocinema.com</link>
+	<description>Só mais um site WordPress</description>
+	<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+	<language>pt-BR</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.tudocinema.com</wp:base_site_url>
+	<wp:base_blog_url>https://www.tudocinema.com</wp:base_blog_url>
+
+		<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[Administrador]]></wp:author_login><wp:author_email><![CDATA[admin@filmesxonline.com]]></wp:author_email><wp:author_display_name><![CDATA[Administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+
+				
+	<generator>https://wordpress.org/?v=5.8.3</generator>
+
+		<item>
+		<title><![CDATA[$title $seasonª Temporada]]></title>
+		<link>https://www.tudocinema.com/temporadas/${title_new}-${season}a-temporada/</link>
+		<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+		<dc:creator><![CDATA[Administrador]]></dc:creator>
+		<guid isPermaLink="false">https://www.tudocinema.com/?post_type=seasons&#038;p=${tv}${season}</guid>
+		<description></description>
+		<content:encoded><![CDATA[$overview
+<br>
+<strong>Sinopse da Série:</strong> $TVsinopse
+&nbsp;
+<blockquote>
+<h5 style="text-align: center;">Assistir $title ${season}x${episode} Online Dublado,
+Assistir ${season} Temporada  $title Online Legendado,
+Assistir $title ${season} Temporada Online em HD,
+Assistir $title ${season} Temporada Online Grátis,
+Assistir $title ${season} Temporada Online Dublado,
+Assistir $title ${season} Temporada Online Legendado,
+Assistir $title ${season} Temporada Online em HD,
+Assistir $title ${season} Temporada Online Grátis,
+Assistir $title ${season} Temporada Episodio $episode Online,
+Assistir $title ${seasonSP} Temporada Online Dublado,
+Assistir $title ${seasonSP} Temporada Online Legendado,
+Assistir $title ${seasonSP} Temporada Online em HD,
+Assistir $title ${seasonSP} Temporada Online Grátis,
+Assistir $title ${seasonSP} Temporada Online Dublado,
+Assistir $title ${seasonSP} Temporada Online Legendado,
+Assistir $title ${seasonSP} Temporada Online em HD,
+Assistir $title ${seasonSP} Temporada Online Grátis,
+Assistir $title ${seasonSP} Temporada Online,
+Assistir $title $season Dublado e Legendado,
+Assistir $title $season Temporada Completo</h5>
+&nbsp;</blockquote>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>${tv}${season}</wp:post_id>
+		<wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+		<wp:post_modified><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified>
+		<wp:post_modified_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:ping_status><![CDATA[closed]]></wp:ping_status>
+		<wp:post_name><![CDATA[${title_new}-${season}a-temporada]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[seasons]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+														<wp:postmeta>
+		<wp:meta_key><![CDATA[ids]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[temporada]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$season]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[serie]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[air_date]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$air_date]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_poster]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$poster_path]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+		<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_focuskw]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title $seasonª Temporada - Dublado e Legendado]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title $seasonª Temporada Dublado e Legendado. Assistir $seasonª Temporada $title. Assistir $season temporada $title.]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_linkdex]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_content_score]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_estimated-reading-time-minutes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							</item>
+				</channel>
+</rss>
+
+EOF
+
+}
+
+getXmlEpisodeVizer() {
+
+    getTime
+    getFields
+
+    if [[ $anime = true ]]; then
+        tipooo=anime
+    else
+        tipooo=serie
+    fi
+
+    if [[ ! -f "file/$tipooo/dub/360p/$tv-$season-$episode.mp4" ]] && [[ -f "file/$tipooo/leg/360p/$tv-$season-$episode.mp4" ]]; then
+
+        playervizer='<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:8:"Original";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorL':"'$leg'";}}]]></wp:meta_value>'
+
+    elif [[ -f "file/$tipooo/dub/360p/$tv-$season-$episode.mp4" ]] && [[ ! -f "file/$tipooo/leg/360p/$tv-$season-$episode.mp4" ]]; then
+
+        playervizer='	<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:7:"Dublado";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorD':"'$dub'";}}]]></wp:meta_value>'
+
+    elif [[ -f "file/$tipooo/dub/360p/$tv-$season-$episode.mp4" ]] && [[ -f "file/$tipooo/leg/360p/$tv-$season-$episode.mp4" ]]; then
+
+        playervizer='<wp:meta_value><![CDATA[a:2:{i:0;a:4:{s:4:"name";s:8:"Original";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorL':"'$leg'";}i:1;a:4:{s:4:"name";s:7:"Dublado";s:6:"select";s:6:"iframe";s:4:"type";s:6:"online";s:3:"url";s:'$valorD':"'$dub'";}}]]></wp:meta_value>'
+
+    fi
+
+    vote_average="${vote_average:0:3}"
+
+    rm -rf $tv-$season-$episode.xml
+    cat <<EOF >>$tv-$season-$episode.xml
+
+            <?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+                <channel>
+                    <title>Tudocinema</title>
+                    <link>https://tudocinema.com</link>
+                    <description>Só mais um site WordPress</description>
+                    <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                    <language>pt-BR</language>
+                    <wp:wxr_version>1.2</wp:wxr_version>
+                    <wp:base_site_url>https://tudocinema.com</wp:base_site_url>
+                    <wp:base_blog_url>https://tudocinema.com</wp:base_blog_url>
+                    <wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[administrador]]></wp:author_login><wp:author_email><![CDATA[ruancabral113@gmail.com]]></wp:author_email><wp:author_display_name><![CDATA[administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+                    <generator>https://wordpress.org/?v=4.9.18</generator>
+
+                    <item>
+		<title>${title} - ${season}x${episode}</title>
+		<link>https://tudocinema.com/?episodes=${title_new}-${season}a-temporada-episodio-${episode}</link>
+		<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+		<dc:creator><![CDATA[administrador]]></dc:creator>
+		<guid isPermaLink="false">https://tudocinema.com/?post_type=episodes&#038;p=${tv}${season}${episode}</guid>
+		<description></description>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>${tv}${season}${episode}</wp:post_id>
+		<wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+		<wp:comment_status><![CDATA[closed]]></wp:comment_status>
+		<wp:ping_status><![CDATA[closed]]></wp:ping_status>
+		<wp:post_name><![CDATA[${title_new}-${season}a-temporada-episodio-${episode}]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[episodes]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[episodio]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$episode]]></wp:meta_value>
+		</wp:postmeta>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[episode_name]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$name]]></wp:meta_value>
+		</wp:postmeta>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[backdrop]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$still_path]]></wp:meta_value>
+		</wp:postmeta>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[serie]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[temporada]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$season]]></wp:meta_value>
+		</wp:postmeta>
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[ids]]></wp:meta_key>
+			<wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+		</wp:postmeta>
+        
+        <wp:postmeta>
+			<wp:meta_key><![CDATA[repeatable_fields]]></wp:meta_key>
+            $playervizer
+			</wp:postmeta>
+
+		<wp:postmeta>
+			<wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+			<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+	</item>
+                    
+                </channel>
+            </rss>
+EOF
+
+}
+
+getXmlEpisodeDooplay() {
+
+    if [[ -f stats/${tv}-${season}-${episode}.dual ]]; then
+        audio=dual
+        audioTAG=Dual
+        linkTAG=dublado-e-legendado
+    elif [[ -f stats/${tv}-${season}-${episode}.dub ]]; then
+        audio=dub
+        audioTAG=DUB
+        linkTAG=dublado
+    elif [[ -f stats/${tv}-${season}-${episode}.leg ]]; then
+        audio=leg
+        audioTAG=LEG
+        linkTAG=legendado
+
+    else
+        audio=dub
+        audioTAG=DUB
+        linkTAG=dublado
+
+    fi
+
+    if [[ $anime = anime ]]; then
+
+        customplayer=anime
+
+    else
+
+        customplayer=serie
+        
+    fi
+
+    getTime
+    getFields
+
+    tamanhoEpisode=$(wc -m <<<$tv-$season-$episode)
+    tamanho=$((47 + $tamanhoEpisode))
+
+    rm -rf ${tv}-${season}-${episode}.xml
+
+    cat <<EOF >>${tv}-${season}-${episode}.xml
+
+            <?xml version="1.0" encoding="UTF-8" ?>
+            <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/"xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+                <channel>
+                    <title>Tudocinema</title>
+                    <link>https://www.tudocinema.com</link>
+                    <description>Só mais um site WordPress</description>
+                    <pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+                    <language>pt-BR</language>
+                    <wp:wxr_version>1.2</wp:wxr_version>
+                    <wp:base_site_url>https://www.tudocinema.com</wp:base_site_url>
+                    <wp:base_blog_url>https://www.tudocinema.com</wp:base_blog_url>
+                    <wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[administrador]]></wp:author_login><wp:author_email><![CDATA[ruancabral113@gmail.com]]></wp:author_email><wp:author_display_name><![CDATA[administrador]]></wp:author_display_name><wp:author_first_name><![CDATA[]]></wp:author_first_name><wp:author_last_name><![CDATA[]]></wp:author_last_name></wp:author>
+                    <generator>https://wordpress.org/?v=4.9.18</generator>
+
+
+                    <item>
+		<title><![CDATA[$title ${season}x${episode}]]></title>
+		<link>https://www.tudocinema.com/ep/${title_new}-${season}x${episode}-$linkTAG/</link>
+		<pubDate>$dayName, $dayNumber $month $year $time +0000</pubDate>
+		<dc:creator><![CDATA[Administrador]]></dc:creator>
+		<guid isPermaLink="false">https://www.tudocinema.com/ep/${title_new}-${season}x${episode}-$linkTAG/</guid>
+		<description></description>
+		<content:encoded><![CDATA[$overview
+<br>
+<strong>Sinopse da Série:</strong> $TVsinopse
+&nbsp;
+<blockquote>
+<h5 style="text-align: center;">Assistir $title ${season}x${episode} Online Dublado,
+Assistir $title ${season}x${episode} Online Legendado,
+Assistir $title ${season}x${episode} Online em HD,
+Assistir $title ${season}x${episode} Online Grátis,
+Assistir $title ${season}x${episode} Online Dublado,
+Assistir $title ${season}x${episode} Online Legendado,
+Assistir $title ${season}x${episode} Online em HD,
+Assistir $title ${season}x${episode} Online Grátis,
+Assistir $title ${season}x${episode} Temporada Episodio $episode Online,
+Assistir $title ${seasonSP}${episodeSP} Online Dublado,
+Assistir $title ${seasonSP}${episodeSP} Online Legendado,
+Assistir $title ${seasonSP}${episodeSP} Online em HD,
+Assistir $title ${seasonSP}${episodeSP} Online Grátis,
+Assistir $title ${seasonSP}${episodeSP} Online Dublado,
+Assistir $title ${seasonSP}${episodeSP} Online Legendado,
+Assistir $title ${seasonSP}${episodeSP} Online em HD,
+Assistir $title ${seasonSP}${episodeSP} Online Grátis,
+Assistir $title ${seasonSP} Temporada Episodio ${episodeSP} Online,
+Assistir $title $season Episodio $episode Dublado e Legendado,
+Assistir $title $season Temporada ep $episode Completo</h5>
+&nbsp;</blockquote>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>${tv}${season}${episode}</wp:post_id>
+		<wp:post_date><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_date_gmt>
+		<wp:post_modified><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified>
+		<wp:post_modified_gmt><![CDATA[$year-$monthNumber-$dayNumber $time]]></wp:post_modified_gmt>
+		<wp:comment_status><![CDATA[open]]></wp:comment_status>
+		<wp:ping_status><![CDATA[closed]]></wp:ping_status>
+		<wp:post_name><![CDATA[${title_new}-${season}x${episode}-$linkTAG]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[episodes]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+		<wp:is_sticky>0</wp:is_sticky>
+						        <category domain="dtquality" nicename="$tagURL"><![CDATA[$tagName]]></category>				
+						<wp:postmeta>
+		<wp:meta_key><![CDATA[ids]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$tv]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[temporada]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$season]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[episodio]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$episode]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[serie]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[episode_name]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$name]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[air_date]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$air_date]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[imagenes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[${imageneres_new[0]}
+${imageneres_new[1]}
+${imageneres_new[2]}
+${imageneres_new[3]}
+${imageneres_new[4]}
+${imageneres_new[5]}
+${imageneres_new[6]}
+]]></wp:meta_value>
+		</wp:postmeta>
+					
+                            <category domain="dtquality" nicename="$audio"><![CDATA[$audioTAG]]></category>
+
+                    		<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_backdrop]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$still_path]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[dt_views_count]]></wp:meta_key>
+		<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_edit_last]]></wp:meta_key>
+		<wp:meta_value><![CDATA[1]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_focuskw]]></wp:meta_key>
+		<wp:meta_value><![CDATA[$title ${season}x${episode} $linkTAG]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key>
+		<wp:meta_value><![CDATA[Assistir $title ${season}x${episode} $linkTAG online, Assistir $title ${season}x${episode} grátis, Assistir $title ${season}x${episode} Online Grátis.]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_linkdex]]></wp:meta_key>
+		<wp:meta_value><![CDATA[100]]></wp:meta_value>
+		</wp:postmeta>
+
+        							<wp:postmeta>
+		<wp:meta_key><![CDATA[repeatable_fields]]></wp:meta_key>
+		<wp:meta_value><![CDATA[a:1:{i:0;a:4:{s:4:"name";s:6:"Player";s:6:"select";s:6:"iframe";s:6:"idioma";s:0:"";s:3:"url";s:$tamanho:"https://play.tudocinema.com/watch.php?v=$tv-$season-$episode&t=$customplayer";}}]]></wp:meta_value>
+		</wp:postmeta>
+        							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_content_score]]></wp:meta_key>
+		<wp:meta_value><![CDATA[100]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_estimated-reading-time-minutes]]></wp:meta_key>
+		<wp:meta_value><![CDATA[]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key>
+		<wp:meta_value><![CDATA[Assistir $title: ${season}x${episode} $linkTAG Online]]></wp:meta_value>
+		</wp:postmeta>
+							<wp:postmeta>
+		<wp:meta_key><![CDATA[_yoast_wpseo_primary_dtquality]]></wp:meta_key>
+		<wp:meta_value><![CDATA[20]]></wp:meta_value>
+		</wp:postmeta>
+							</item>
+                    
+                </channel>
+            </rss>
+EOF
+
+}
+
+getFields() {
+
+    if [[ $filme == true ]]; then
+
+        dub="https://play.tudocinema.com/watch.php?v=$movie&a=dub&t=filme&d=a"
+        leg="https://play.tudocinema.com/watch.php?v=$movie&a=leg&t=filme&d=a"
+        valorD=$(echo -n "$dub" | wc -c)
+        valorL=$(echo -n "$leg" | wc -c)
+
+        echo $dub
+        echo $valorD
+        echo $leg
+        echo $valorL
+
+    elif [[ $anime == true ]]; then
+
+        dub="https://play.tudocinema.com/watch.php?v=$tv-$season-$episode&a=dub&t=anime&d=a"
+        leg="https://play.tudocinema.com/watch.php?v=$tv-$season-$episode&a=leg&t=anime&d=a"
+        valorD=$(echo -n "$dub" | wc -c)
+        valorL=$(echo -n "$leg" | wc -c)
+
+        echo $dub
+        echo $valorD
+        echo $leg
+        echo $valorL
+
+    else
+
+        dub="https://play.tudocinema.com/watch.php?v=$tv-$season-$episode&a=dub&t=serie&d=a"
+        leg="https://play.tudocinema.com/watch.php?v=$tv-$season-$episode&a=leg&t=serie&d=a"
+        valorD=$(echo -n "$dub" | wc -c)
+        valorL=$(echo -n "$leg" | wc -c)
+
+        echo $dub
+        echo $valorD
+        echo $leg
+        echo $valorL
+
+    fi
+
+}
+
+getTime() {
+    dayName=$(date +"%a")
+    dayNumber=$(date +"%d")
+    monthName=$(date +"%b")
+    monthNumber=$(date +"%m")
+    year=$(date +"%Y")
+    time=$(date +"%T")
+}
+
+getVideoChecks() {
+
+    Width=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 $file)
+    Height=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 $file)
+    Duration=$(ffprobe -i $file -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
+    H264=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $file)
+    Audio01aac=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $file)
+    Audio02aac=$(ffprobe -v error -select_streams a:1 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $file)
+    Audio01Language=$(ffprobe -v error -select_streams a:0 -show_entries stream=index:stream_tags=language -of csv="p=0" -sexagesimal $file)
+    Audio02Language=$(ffprobe -v error -select_streams a:1 -show_entries stream=index:stream_tags=language -of csv="p=0" -sexagesimal $file)
+    FPS=$(ffmpeg -i $file 2>&1 | sed -n "s/.*, \(.*\) fp.*/\1/p")
+
+    echo "=========================================="
+    ### show the tvshow and episode
+    echo "        Info about the file bellow        "
+    echo "=========================================="
+    echo "| Width: "$Width""
+    echo "| Height: "$Height""
+    echo "| Duration: "$Duration""
+    echo "| Video Codec: "$H264""
+    echo "| Audio Codec 1: "$Audio01aac""
+    echo "| Audio Codec 2: "$Audio02aac""
+    echo "| Linguaguem 1: "$Audio01Language""
+    echo "| Linguaguem 2: "$Audio02Language""
+    echo "| Frame per Sec: "$FPS""
+    echo "=========================================="
+    echo
+
+}
+
+getToRaw() {
+
+    getVideoChecks
+
+    if [[ $filme == false ]]; then
+
+        noExt=$tv-$season-$episode
+
+    fi
+
+    mv $file file/
+
+    ffmpeg -y -i file/$file -map 0:v -c copy -map 0:a:0 -c:a:0 aac -b:a 64k -bufsize 128k -ac 1 -ar 44100 file/$noExt-um.mp4
+    ffmpeg -y -i file/$file -map 0:v -c copy -map 0:a:1 -c:a:1 aac -b:a 64k -bufsize 128k -ac 1 -ar 44100 file/$noExt-dois.mp4
+
+    if [[ -f "file/$noExt-um.mp4" ]] && [[ -f "file/$noExt-dois.mp4" ]]; then
+
+        videoIsDual=dual
+
+        tagURL=dual
+        tagName="DUB / LEG"
+
+        if [[ $Audio01Language == *"1,por"* ]] && [[ $Audio02Language == *"2,eng"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,por"* ]] && [[ $Audio02Language == *"2,und"* ]]; then
+
+            mv file/$noExt-dois.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-um.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,por"* ]] && [[ $Audio02Language != *"2,eng"* ]] && [[ $Audio02Language != *"2,und"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,eng"* ]] && [[ $Audio02Language == *"2,por"* ]]; then
+
+            mv file/$noExt-dois.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-um.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,eng"* ]] && [[ $Audio02Language == *"2,und"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,eng"* ]] && [[ $Audio02Language != *"2,por"* ]] && [[ $Audio02Language != *"2,und"* ]]; then
+
+            mv file/$noExt-dois.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-um.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,und"* ]] && [[ $Audio02Language == *"2,por"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,und"* ]] && [[ $Audio02Language == *"2,eng"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language == *"1,und"* ]] && [[ $Audio02Language != *"2,por"* ]] && [[ $Audio02Language != *"2,eng"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language != *"1,eng"* ]] && [[ $Audio01Language != *"1,und"* ]] && [[ $Audio02Language == *"2,por"* ]]; then
+
+            mv /play/file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv /play/file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language != *"1,por"* ]] && [[ $Audio01Language != *"1,und"* ]] && [[ $Audio02Language == *"2,eng"* ]]; then
+
+            mv /play/file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv /play/file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        elif [[ $Audio01Language != *"1,por"* ]] && [[ $Audio02Language != *"2,eng"* ]] && [[ $Audio02Language != *"2,und"* ]]; then
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        else
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+            mv file/$noExt-dois.mp4 file/$noExt-leg.mp4
+
+        fi
+
+    else
+
+        if [[ $Audio01Language == *"1,por"* ]]; then
+
+            videoIsDual=dub
+            tagURL=dub
+            tagName="DUB"
+
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+
+        elif [[ $Audio01Language == *"1,eng"* ]]; then
+
+            videoIsDual=leg
+            tagURL=leg
+            tagName="LEG"
+            mv file/$noExt-um.mp4 file/$noExt-leg.mp4
+
+        elif
+            [[ $Audio01Language == *"1,jpn"* ]]
+        then
+
+            videoIsDual=leg
+            tagURL=leg
+            tagName="LEG"
+            mv file/$noExt-um.mp4 file/$noExt-leg.mp4
+
+        else
+
+            videoIsDual=dub
+            tagURL=dub
+            tagName="DUB"
+            mv file/$noExt-um.mp4 file/$noExt-dub.mp4
+
+        fi
+
+    fi
+
+    #########################################################
+    #                     MP4
+    #########################################################
+
+    mkdir -p $noExt
+
+    if [[ -f file/$noExt-dub.mp4 ]]; then
+
+        ffmpeg -y -i "file/$noExt-dub.mp4" -map_chapters -1 -preset slow -c:a copy -c:v libx264 -x264opts 'keyint=24:min-keyint=24:no-scenecut' -crf 22 -pix_fmt yuv420p -vf scale=-2:540,setsar=1:1 -f mp4 "$noExt/540p-dub.mp4"
+        ffmpeg -y -i "file/$noExt-dub.mp4" -map_chapters -1 -preset slow -c:a copy -c:v libx264 -x264opts 'keyint=24:min-keyint=24:no-scenecut' -crf 22 -pix_fmt yuv420p -vf scale=-2:360,setsar=1:1 -f mp4 "$noExt/360p-dub.mp4"
+
+    fi
+
+    if [[ -f "$noExt/540p-dub.mp4" ]] && [[ -f "$noExt/360p-dub.mp4" ]] && [[ -f "file/$noExt-leg.mp4" ]]; then
+
+        ffmpeg -y -i "$noExt/540p-dub.mp4" -preset slow -an -c:v copy "$noExt/540p-temp.mp4"
+        ffmpeg -y -i "$noExt/360p-dub.mp4" -preset slow -an -c:v copy "$noExt/360p-temp.mp4"
+
+        ffmpeg -y -i "file/$noExt-leg.mp4" -preset slow -c:a aac -b:a 64k -bufsize 128k -ac 1 -ar 44100 "$noExt/temp.aac"
+
+        ffmpeg -y -i "$noExt/540p-temp.mp4" -i "$noExt/temp.aac" -c:v copy -c:a copy "$noExt/540p-leg.mp4"
+        ffmpeg -y -i "$noExt/360p-temp.mp4" -i "$noExt/temp.aac" -c:v copy -c:a copy "$noExt/360p-leg.mp4"
+
+        rm "$noExt/540p-temp.mp4"
+        rm "$noExt/360p-temp.mp4"
+        rm "$noExt/temp.aac"
+        rm "file/$noExt-dub.mp4"
+        rm "file/$noExt-leg.mp4"
+
+    elif [[ ! -f "$noExt/540p-dub.mp4" ]] && [[ ! -f "$noExt/360p-dub.mp4" ]] && [[ -f "file/$noExt-leg.mp4" ]]; then
+
+        ffmpeg -y -i "file/$noExt-leg.mp4" -map_chapters -1 -preset slow -c:a copy -c:v libx264 -x264opts 'keyint=24:min-keyint=24:no-scenecut' -crf 22 -pix_fmt yuv420p -vf scale=-2:540,setsar=1:1 -f mp4 "$noExt/540p-leg.mp4"
+        ffmpeg -y -i "file/$noExt-leg.mp4" -map_chapters -1 -preset slow -c:a copy -c:v libx264 -x264opts 'keyint=24:min-keyint=24:no-scenecut' -crf 22 -pix_fmt yuv420p -vf scale=-2:360,setsar=1:1 -f mp4 "$noExt/360p-leg.mp4"
+
+        rm "file/$noExt-leg.mp4"
+
+    fi
+
+    mv file/$file delete
+
+    ###########################################################
+    #                           HLS
+    ###########################################################
+
+    if [[ -f "$noExt/540p-dub.mp4" ]] && [[ -f "$noExt/360p-dub.mp4" ]] && [[ -f "$noExt/540p-leg.mp4" ]] && [[ -f "$noExt/360p-leg.mp4" ]]; then
+
+        echo "Convertendo DUAL AUDIO"
+        #video
+        ffmpeg -y -i "$noExt/540p-dub.mp4" -sn -an -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls "$noExt/_540p.m3u8"
+        ffmpeg -y -i "$noExt/360p-dub.mp4" -sn -an -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls "$noExt/_360p.m3u8"
+
+        #audio to hls
+        ffmpeg -y -i "$noExt/540p-dub.mp4" -vn -sn -c:a copy -f segment -sc_threshold 0 -segment_time 5 -segment_list "$noExt/audio-dub.m3u8" -segment_format mpegts "$noExt/aac-dub%d.m4a"
+        ffmpeg -y -i "$noExt/540p-leg.mp4" -vn -sn -c:a copy -f segment -sc_threshold 0 -segment_time 5 -segment_list "$noExt/audio-leg.m3u8" -segment_format mpegts "$noExt/aac-leg%d.m4a"
+
+        rm -rf $noExt/master.m3u8
+
+        cat <<EOF >>$noExt/master.m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="por",NAME="Português (Brasil)",AUTOSELECT=NO,URI="audio-dub.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",LANGUAGE="en",NAME="Original",AUTOSELECT=NO,URI="audio-leg.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=640x360,AUDIO="audio"
+_360p.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=8520x530,AUDIO="audio"
+_540p.m3u8
+EOF
+
+        rm $noExt/540p-dub.mp4
+        rm $noExt/360p-dub.mp4
+        rm $noExt/540p-leg.mp4
+        rm $noExt/360p-leg.mp4
+
+        touch $noExt/dual.txt
+        touch $noExt/views.txt
+
+    elif [[ -f "$noExt/540p-leg.mp4" ]] && [[ -f "$noExt/360p-leg.mp4" ]]; then
+
+        #video
+        ffmpeg -y -i $noExt/540p-leg.mp4 -sn -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls $noExt/_540p.m3u8
+        ffmpeg -y -i $noExt/360p-leg.mp4 -sn -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls $noExt/_360p.m3u8
+
+        rm -rf $noExt/master.m3u8
+
+        cat <<EOF >>$noExt/master.m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=6400x360
+_360p.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=842x540
+_540p.m3u8
+EOF
+
+        rm $noExt/540p-leg.mp4
+        rm $noExt/360p-leg.mp4
+
+        touch $noExt/leg.txt
+        touch $noExt/views.txt
+
+    elif [[ -f "$noExt/540p-dub.mp4" ]] && [[ -f "$noExt/360p-dub.mp4" ]]; then
+
+        #video
+        ffmpeg -y -i $noExt/540p-dub.mp4 -sn -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls $noExt/_540p.m3u8
+        ffmpeg -y -i $noExt/360p-dub.mp4 -sn -codec: copy -bsf:v h264_mp4toannexb -start_number 0 -hls_time 5 -hls_list_size 0 -f hls $noExt/_360p.m3u8
+
+        rm -rf $noExt/master.m3u8
+
+        cat <<EOF >>$noExt/master.m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=6400x360
+_360p.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=842x540
+_540p.m3u8
+EOF
+
+        rm -rf $noExt/540p-dub.mp4
+        rm -rf $noExt/360p-dub.mp4
+
+        touch $noExt/dub.txt
+        touch $noExt/views.txt
+
+    fi
+
+    if [[ $filme == true ]]; then
+
+        urlplay=https://play.tudocinema.com/filme
+
+    else
+
+        urlplay=https://play.tudocinema.com/serie
+
+    fi
+
+    cd $noExt
+
+    cd ..
+    ####################################################
+
+    if [[ $filme == false ]]; then
+
+        rm -rf file/serie/$noExt
+        mv $noExt file/serie
+
+    else
+        rm -rf file/filme/$noExt
+        mv $noExt file/filme
+
+    fi
+
+    ######################### XML ##############################
+    export PATH=$PATH:$HOME/bin
+
+    cd xml
+
+    for file in $(ls -v *.xml); do
+
+        if [[ ! -f old/$file ]]; then
+            wp --path=/beta/ import $file --allow-root --authors=skip
+
+            mv $file old
+
+        else
+
+            rm $file
+
+        fi
+
+    done
+
+    cd ..
+    ################################################################
+}
+
+getConfiguredClient || exit 1
+if [[ "$(uname)" == "Linux" ]]; then getConfiguredPython || exit 1; fi
+checkInternet || exit 1
+
+getRAW() {
+
+    for file in $(ls -v *.mkv); do
+
+        if [[ -f $file ]]; then
+
+            noExt=${file//.mkv/}
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            tv=$(echo ${noExt[0]})
+            season=$(echo ${noExt[1]})
+            episode=$(echo ${noExt[2]})
+
+            if [[ *"$file"* == *"tt"* ]] && [[ *"$file"* != '-' ]]; then
+                ### Variaveis de tratamento de dados
+                filme=true
+                serie=false
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                movie=$noExt
+
+                #TMDB info print
+                getMovieInfo
+
+                #Resultado Video + Player op
+                getToRaw
+
+                getXmlMovie
+
+            elif [[ "$file" == *-1-1.mkv ]]; then
+
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+                primeiroEpDaSerie=true
+                primeiroDaTemporada=true
+
+                #TMDB info print
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlTVVizer
+                getXmlTV
+                getXmlSeason
+
+                #Resultado Video + Player opção
+                getToRaw
+
+                getXmlEpisode
+
+            elif
+
+                [[ "$file" != *-1-1.mkv ]] && [[ *"$file"* == *"-1.mkv"* ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=true
+                #tmdb
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlSeason
+
+                #Resultado Video + Player opção
+                getToRaw
+
+                getXmlEpisode
+
+            elif [[ *"$file"* != *-1.mkv ]]; then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                #TMDB info print
+                getEpisodeInfo
+
+                #Resultado Video + Player opção
+                getToRaw
+
+                getXmlEpisode
+
+            fi
+            mv *.xml xml
+        else
+
+            echo "já convertendo"
+
+        fi
+
+    done
+
+}
+
+getRename() {
+
+    for f in *.mp4; do
+
+        count=$(ls -1 $f 2>/dev/null | wc -l)
+        if [ $count != 0 ]; then
+            mv -- "$f" "${f%.*}.mkv"
+        else
+            echo ""
+        fi
+
+    done
+
+    for f in *.avi; do
+
+        count=$(ls -1 $f 2>/dev/null | wc -l)
+        if [ $count != 0 ]; then
+            mv -- "$f" "${f%.*}.mkv"
+        else
+            echo ""
+        fi
+
+    done
+
+}
+
+getDooplayXmlFilme() {
+
+    echo "XML FILME"
+
+    for d in file/filme/*/; do
+
+        filedate=$(date -r $d -u +"%Y%m%d%H%M")
+
+        noExt=${d//"file/filme/"/}
+        noExt=${noExt//"/"/}
+
+        xmldate=$(date -r /play/xml/old/$noExt.xml -u +"%Y%m%d%H%M")
+
+        if [[ "$filedate" > "$xmldate" ]] || [[ ! -f "/play/xml/old/$noExt.xml" ]]; then
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            filme=true
+            serie=false
+            primeiroEpDaSerie=false
+            primeiroDaTemporada=false
+            movie=$noExt
+
+            getMovieInfo
+            getXmlMovieDooplay
+
+        else
+
+            echo "Arquivo já existe /play/xml/old/"
+
+        fi
+
+    done
+
+}
+
+getDooplayXmlSerie() {
+
+    one
+
+    for d in file/serie/*/; do
+
+        count=$(ls -1 $d 2>/dev/null | wc -l)
+        if [ $count != 0 ]; then
+
+            filedate=$(date -r $d -u +"%Y%m%d%H%M")
+
+            compare=${d//"file/serie/"/}
+            compare=${compare//"/"/}
+
+            noExt=${d//"file/serie/"/}
+            noExt=${noExt//"/"/}
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            tv=$(echo ${noExt[0]})
+            season=$(echo ${noExt[1]})
+            episode=$(echo ${noExt[2]})
+
+            xmldate=$(date -r /play/xml/old/$compare.xml -u +"%Y%m%d%H%M")
+
+            if [[ "$filedate" > "$xmldate" ]] || [[ ! -f "/play/xml/old/$compare.xml" ]]; then
+
+                if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=true
+                    primeiroDaTemporada=true
+
+                    #TMDB info print
+                    getTVInfo
+                    getSeasonInfo
+                    getEpisodeInfo
+
+                    #XML essensial, indepente da qualidade
+                    getXmlTVDooplay
+                    getXmlSeasonDooplay
+                    getXmlEpisodeDooplay
+
+                elif
+
+                    [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+                then
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=false
+                    primeiroDaTemporada=true
+                    #tmdb
+                    getTVInfo
+                    getSeasonInfo
+                    getEpisodeInfo
+
+                    #XML essensial, indepente da qualidade
+                    getXmlSeasonDooplay
+                    getXmlEpisodeDooplay
+
+                elif
+                    [[ "$compare" != "$tv-$season-1" ]]
+                then
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=false
+                    primeiroDaTemporada=false
+                    #TMDB info print
+                    getTVInfo
+                    getEpisodeInfo
+                    getXmlEpisodeDooplay
+
+                fi
+
+                mv *.xml xml
+            else
+
+                echo "EP já existe"
+
+            fi
+
+        fi
+    done
+
+}
+
+getDooplayXmlAnime() {
+
+    echo "XML ANIME"
+
+    for d in file/anime/*/; do
+        count=$(ls -1 $d 2>/dev/null | wc -l)
+
+        if [ $count != 0 ]; then
+
+            filedate=$(date -r $d -u +"%Y-%m-%d")
+
+            anime=anime
+            compare=${d//"file/anime/"/}
+            compare=${compare//"/"/}
+
+            noExt=${d//"file/anime/"/}
+            noExt=${noExt//"/"/}
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            tv=$(echo ${noExt[0]})
+            season=$(echo ${noExt[1]})
+            episode=$(echo ${noExt[2]})
+
+            xmldate=$(date -r /play/xml/old/$compare.xml -u +"%Y-%m-%d")
+
+            if [[ "$filedate" > "$xmldate" ]] || [[ ! -f "/play/xml/old/$tv-$season-$episode.xml" ]]; then
+
+                if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=true
+                    primeiroDaTemporada=true
+
+                    #TMDB info print
+                    getTVInfo
+                    getSeasonInfo
+                    getEpisodeInfo
+
+                    #XML essensial, indepente da qualidade
+                    getXmlTVDooplay
+                    getXmlSeasonDooplay
+                    getXmlEpisodeDooplay
+
+                elif
+
+                    [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+                then
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=false
+                    primeiroDaTemporada=true
+                    #tmdb
+                    getTVInfo
+                    getSeasonInfo
+                    getEpisodeInfo
+
+                    #XML essensial, indepente da qualidade
+                    getXmlSeasonDooplay
+                    getXmlEpisodeDooplay
+
+                elif
+                    [[ "$compare" != "$tv-$season-1" ]]
+                then
+                    ### Variaveis de tratamento de dados
+                    filme=false
+                    serie=true
+                    primeiroEpDaSerie=false
+                    primeiroDaTemporada=false
+                    #TMDB info print
+                    getTVInfo
+                    getEpisodeInfo
+                    getXmlEpisodeDooplay
+
+                fi
+
+                mv *.xml xml
+            else
+
+                echo "EP já existe"
+
+            fi
+        fi
+    done
+
+}
+
+###GET XML VIZER
+
+getVizerXmlFilme() {
+
+    echo "XML FILME VIZER"
+
+    for d in file/filme/dub/360p/*.mp4; do
+
+        noExt=${d//"file/filme/dub/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$noExt.xml" ]]; then
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            filme=true
+            serie=false
+            primeiroEpDaSerie=false
+            primeiroDaTemporada=false
+            movie=$noExt
+
+            getMovieInfo
+            getXmlMovieVizer
+
+        else
+
+            echo "Arquivo já existe na HLS /play/xml/old-vizer/"
+
+        fi
+
+    done
+
+    for d in file/filme/leg/360p/*.mp4; do
+
+        noExt=${d//"file/filme/leg/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$noExt.xml" ]]; then
+
+            IFS=" - " read -ra noExt <<<$noExt
+
+            movie=$(echo ${noExt[0]})
+            filme=true
+            serie=false
+            primeiroEpDaSerie=false
+            primeiroDaTemporada=false
+            movie=$noExt
+
+            getMovieInfo
+            getXmlMovieVizer
+
+        else
+
+            echo "Arquivo já existe na HLS /play/xml/old-vizer/"
+
+        fi
+
+    done
+}
+
+getVizerXmlSerie() {
+
+    echo "XML SERIE VIZER"
+
+    for d in file/serie/leg/360p/*.mp4; do
+
+        compare=${d//"file/serie/leg/360p/"/}
+        compare=${compare//".mp4"/}
+
+        noExt=${d//"file/serie/leg/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        IFS=" - " read -ra noExt <<<$noExt
+
+        movie=$(echo ${noExt[0]})
+        tv=$(echo ${noExt[0]})
+        season=$(echo ${noExt[1]})
+        episode=$(echo ${noExt[2]})
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$tv-$season-$episode.xml" ]]; then
+
+            if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=true
+                primeiroDaTemporada=true
+
+                #TMDB info print
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlTVVizer
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+
+                [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=true
+                #tmdb
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+                [[ "$compare" != "$tv-$season-1" ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                #TMDB info print
+                getTVInfo
+                getEpisodeInfo
+                getXmlEpisodeVizer
+
+            fi
+
+            mv *.xml xml
+        else
+
+            echo "EP já existe"
+
+        fi
+
+    done
+
+    for d in file/serie/dub/360p/*.mp4; do
+
+        compare=${d//"file/serie/dub/360p/"/}
+        compare=${compare//".mp4"/}
+
+        noExt=${d//"file/serie/dub/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        IFS=" - " read -ra noExt <<<$noExt
+
+        movie=$(echo ${noExt[0]})
+        tv=$(echo ${noExt[0]})
+        season=$(echo ${noExt[1]})
+        episode=$(echo ${noExt[2]})
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$tv-$season-$episode.xml" ]]; then
+
+            if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=true
+                primeiroDaTemporada=true
+
+                #TMDB info print
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlTVVizer
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+
+                [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=true
+                #tmdb
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+                [[ "$compare" != "$tv-$season-1" ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                #TMDB info print
+                getTVInfo
+                getEpisodeInfo
+                getXmlEpisodeVizer
+
+            fi
+
+            mv *.xml xml
+        else
+
+            echo "EP já existe"
+
+        fi
+
+    done
+}
+
+getVizerXmlAnime() {
+
+    echo "XML ANIME VIZER"
+
+    for d in file/anime/leg/360p/*.mp4; do
+        anime=true
+        compare=${d//"file/anime/leg/360p/"/}
+        compare=${compare//".mp4"/}
+
+        noExt=${d//"file/anime/leg/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        IFS=" - " read -ra noExt <<<$noExt
+
+        movie=$(echo ${noExt[0]})
+        tv=$(echo ${noExt[0]})
+        season=$(echo ${noExt[1]})
+        episode=$(echo ${noExt[2]})
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$tv-$season-$episode.xml" ]]; then
+
+            if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=true
+                primeiroDaTemporada=true
+
+                #TMDB info print
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlTVVizer
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+
+                [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=true
+                #tmdb
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+                [[ "$compare" != "$tv-$season-1" ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                #TMDB info print
+                getTVInfo
+                getEpisodeInfo
+                getXmlEpisodeVizer
+
+            fi
+
+            mv *.xml xml
+        else
+
+            echo "EP já existe"
+
+        fi
+
+    done
+
+    for d in file/anime/dub/360p/*.mp4; do
+
+        anime=true
+
+        compare=${d//"file/anime/dub/360p/"/}
+        compare=${compare//".mp4"/}
+
+        noExt=${d//"file/anime/dub/360p/"/}
+        noExt=${noExt//".mp4"/}
+        noExt=${noExt//"/"/}
+
+        IFS=" - " read -ra noExt <<<$noExt
+
+        movie=$(echo ${noExt[0]})
+        tv=$(echo ${noExt[0]})
+        season=$(echo ${noExt[1]})
+        episode=$(echo ${noExt[2]})
+
+        if [[ *"$d"* != *"-360p"* ]] && [[ ! -f "/play/xml/old-vizer/$tv-$season-$episode.xml" ]]; then
+
+            if [[ "$compare" -eq "$tv-1-1" ]]; then
+
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=true
+                primeiroDaTemporada=true
+
+                #TMDB info print
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlTVVizer
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+
+                [[ *"$compare"* != *"$tv-1-1"* ]] && [[ *"$compare"* == *"$tv-$season-1"* ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=true
+                #tmdb
+                getTVInfo
+                getSeasonInfo
+                getEpisodeInfo
+
+                #XML essensial, indepente da qualidade
+                getXmlSeasonVizer
+                getXmlEpisodeVizer
+
+            elif
+                [[ "$compare" != "$tv-$season-1" ]]
+            then
+                ### Variaveis de tratamento de dados
+                filme=false
+                serie=true
+
+                primeiroEpDaSerie=false
+                primeiroDaTemporada=false
+                #TMDB info print
+                getTVInfo
+                getEpisodeInfo
+                getXmlEpisodeVizer
+
+            fi
+
+            mv *.xml xml
+        else
+
+            echo "EP já existe"
+
+        fi
+
+    done
+
+}
+
+if [[ $optionMENU == 1 ]]; then
+
+    getRAW
+
+elif [[ $optionMENU == 2 ]]; then
+
+    getRename
+
+elif [[ $optionMENU == 3 ]]; then
+
+    echo "1 - Para Filme"
+    echo "2 - Para Serie"
+    echo "3 - Para Anime"
+
+    read optionMENUU
+
+    if [[ $optionMENUU == 1 ]]; then
+
+        getDooplayXmlFilme
+
+    elif [[ $optionMENUU == 2 ]]; then
+
+        getDooplayXmlSerie
+
+    elif [[ $optionMENUU == 3 ]]; then
+
+        getDooplayXmlAnime
+
+    fi
+
+elif
+    [[ $optionMENU == 4 ]]
+then
+
+    echo "1 - Para Filme"
+    echo "2 - Para Serie"
+    echo "3 - Para Anime"
+
+    read optionMENUU
+
+    if [[ $optionMENUU == 1 ]]; then
+
+        getVizerXmlFilme
+
+    elif [[ $optionMENUU == 2 ]]; then
+
+        getVizerXmlSerie
+
+    elif [[ $optionMENUU == 3 ]]; then
+
+        getVizerXmlAnime
+
+    fi
+
+fi
